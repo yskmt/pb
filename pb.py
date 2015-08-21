@@ -1,5 +1,5 @@
 """
-In numpy indexing, [0,0] corresponds to top-left corner
+pb: Poisson Image Blending implemented by Python
 
 """
 
@@ -55,10 +55,13 @@ def get_gradient_sum(img, i, j, h, w):
     return v_sum
 
 
-def get_mixed_gradient_sum(img_src, img_target, i, j, h, w, ofs):
+def get_mixed_gradient_sum(img_src, img_target, i, j, h, w, ofs,
+                           c=1.0):
     """
     Return the sum of the gradient of the source imgae.
     * 3D array for RGB
+
+    c(>=0): larger, the more important the target image gradient is
     """
 
     v_sum = np.array([0.0, 0.0, 0.0])
@@ -75,14 +78,14 @@ def get_mixed_gradient_sum(img_src, img_target, i, j, h, w, ofs):
         # else:
         #     v_sum += gp
 
-        v_sum += np.array([fp[0] if abs(fp[0])>abs(gp[0]) else gp[0],
-                           fp[1] if abs(fp[1])>abs(gp[1]) else gp[1],
-                           fp[2] if abs(fp[2])>abs(gp[2]) else gp[2]])
+        v_sum += np.array([fp[0] if abs(fp[0] * c) > abs(gp[0]) else gp[0],
+                           fp[1] if abs(fp[1] * c) > abs(gp[1]) else gp[1],
+                           fp[2] if abs(fp[2] * c) > abs(gp[2]) else gp[2]])
 
     return v_sum
 
 
-def poisson_blend(img_mask, img_src, img_target, method='mix'):
+def poisson_blend(img_mask, img_src, img_target, method='mix', c=1.0):
 
     hm, wm = img_mask.shape
     region_size = hm * wm
@@ -112,7 +115,7 @@ def poisson_blend(img_mask, img_src, img_target, method='mix'):
     else:
         if method == 'mix':
             grad_func = lambda ii, jj: get_mixed_gradient_sum(
-                img_src, img_target, ii, jj, hm, wm, offset_adj)
+                img_src, img_target, ii, jj, hm, wm, offset_adj, c=c)
         else:
             grad_func = lambda ii, jj: get_gradient_sum(
                 img_src, ii, jj, hm, wm)
@@ -175,26 +178,36 @@ def poisson_blend(img_mask, img_src, img_target, method='mix'):
 
 
 offset = (40, -30)
-img_src = io.imread('./testimages/test1_src.png').astype(np.float64)
-# img_src = io.imread('./testimages/test1_target.png')
 
-img_target = io.imread('./testimages/test1_target.png').astype(np.float64)
+img_src = io.imread('./testimages/test1_src.png').astype(np.float64)
+img_target = io.imread('./testimages/test1_target.png')
+img_mask = io.imread('./testimages/test1_mask.png', as_grey=True)
+
+# resize src and mask images
+# import skimage.transform
+# from skimage import color
+# fac = 3
+# img_src = skimage.transform.resize(img_src, (np.array(img_src.shape)//fac)[:2])
+# img_mask = io.imread('/Users/ysakamoto/Desktop/mask.png', as_grey=True)
+# img_mask = skimage.transform.resize(img_mask, (np.array(img_mask.shape)//fac)[:2])
+# img_mask = color.rgb2grey(img_mask)
 
 img_mask, img_src, offset_adj \
-    = create_mask(io.imread('./testimages/test1_mask.png', as_grey=True)
-                  .astype(np.float64),
+    = create_mask(img_mask.astype(np.float64),
                   img_target, img_src, offset=offset)
 
-
-# img_pro = poisson_blend(img_mask, img_src, img_target, method='normal')
-# plt.imshow(img_pro)
-# plt.show()
-# io.imsave('./testimages/poisson_normal.png', img_pro)
-
-img_pro = poisson_blend(img_mask, img_src, img_target, method='mix')
+img_pro = poisson_blend(img_mask, img_src, img_target, method='normal')
 plt.imshow(img_pro)
 plt.show()
-io.imsave('./testimages/poisson_mix_2.png', img_pro)
+io.imsave('./testimages/poisson_normal.png', img_pro)
+
+# i=14
+# for c in np.linspace(10.0, 50.0, 5):
+#     i+=1
+#     img_pro = poisson_blend(img_mask, img_src, img_target, method='mix', c=c)
+#     plt.imshow(img_pro)
+#     plt.show()
+#     io.imsave('./testimages/poisson_mix_%d.png' %i, img_pro)
 
 # img_pro = poisson_blend(img_mask, img_src, img_target, method='src')
 # io.imsave('./testimages/poisson_src.png', img_pro)
