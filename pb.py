@@ -39,6 +39,13 @@ def create_mask(img_mask, img_target, img_src, offset=(0, 0)):
     # fix offset
     offset_adj = (max(offset[0], 0), max(offset[1], 0))
 
+    # remove edge from the mask so that we don't have to check the
+    # edge condition
+    mask[:, -1] = 0
+    mask[:, 0] = 0
+    mask[-1, :] = 0
+    mask[0, :] = 0
+
     return mask, src, offset_adj
 
 
@@ -85,7 +92,8 @@ def get_mixed_gradient_sum(img_src, img_target, i, j, h, w, ofs,
     return v_sum
 
 
-def poisson_blend(img_mask, img_src, img_target, method='mix', c=1.0):
+def poisson_blend(img_mask, img_src, img_target, method='mix', c=1.0,
+                  offset_adj=(0,0)):
 
     hm, wm = img_mask.shape
     region_size = hm * wm
@@ -177,62 +185,69 @@ def poisson_blend(img_mask, img_src, img_target, method='mix', c=1.0):
     return img_pro
 
 
-offset = (40, -30)
+if __name__ == "__main__":
+    offset = (40, -30)    
+    img_mask = io.imread('/Users/ysakamoto/Projects/sccomp/mask.png', as_grey=True)
+    img_src = io.imread('./testimages/0.png').astype(np.float64)
+    img_target = io.imread('./testimages/0.png')
+    
+    # img_src = io.imread('./testimages/test1_src.png').astype(np.float64)
+    # img_target = io.imread('./testimages/test1_target.png')
+    # img_mask = io.imread('./testimages/test1_mask.png', as_grey=True)
 
-img_src = io.imread('./testimages/test1_src.png').astype(np.float64)
-img_target = io.imread('./testimages/test1_target.png')
-img_mask = io.imread('./testimages/test1_mask.png', as_grey=True)
+    # resize src and mask images
+    # import skimage.transform
+    # from skimage import color
+    # fac = 3
+    # img_src = skimage.transform.resize(img_src, (np.array(img_src.shape)//fac)[:2])
+    # img_mask = io.imread('/Users/ysakamoto/Desktop/mask.png', as_grey=True)
+    # img_mask = skimage.transform.resize(img_mask, (np.array(img_mask.shape)//fac)[:2])
+    # img_mask = color.rgb2grey(img_mask)
 
-# resize src and mask images
-# import skimage.transform
-# from skimage import color
-# fac = 3
-# img_src = skimage.transform.resize(img_src, (np.array(img_src.shape)//fac)[:2])
-# img_mask = io.imread('/Users/ysakamoto/Desktop/mask.png', as_grey=True)
-# img_mask = skimage.transform.resize(img_mask, (np.array(img_mask.shape)//fac)[:2])
-# img_mask = color.rgb2grey(img_mask)
+    img_mask, img_src, offset_adj \
+        = create_mask(img_mask.astype(np.float64),
+                      img_target, img_src, offset=offset)
 
-img_mask, img_src, offset_adj \
-    = create_mask(img_mask.astype(np.float64),
-                  img_target, img_src, offset=offset)
+    img_pro = poisson_blend(img_mask, img_src, img_target,
+                            method='normal', offset_adj=offset_adj)
+    plt.imshow(img_pro)
+    plt.show()
+    io.imsave('./testimages/poisson_normal.png', img_pro)
 
-img_pro = poisson_blend(img_mask, img_src, img_target, method='normal')
-plt.imshow(img_pro)
-plt.show()
-io.imsave('./testimages/poisson_normal.png', img_pro)
+    import pdb
+    # pdb.set_trace()
+    # i=14
+    # for c in np.linspace(10.0, 50.0, 5):
+    #     i+=1
+    #     img_pro = poisson_blend(img_mask, img_src, img_target, method='mix', c=c)
+    #     plt.imshow(img_pro)
+    #     plt.show()
+    #     io.imsave('./testimages/poisson_mix_%d.png' %i, img_pro)
 
-# i=14
-# for c in np.linspace(10.0, 50.0, 5):
-#     i+=1
-#     img_pro = poisson_blend(img_mask, img_src, img_target, method='mix', c=c)
-#     plt.imshow(img_pro)
-#     plt.show()
-#     io.imsave('./testimages/poisson_mix_%d.png' %i, img_pro)
+    # img_pro = poisson_blend(img_mask, img_src, img_target, method='src')
+    # io.imsave('./testimages/poisson_src.png', img_pro)
 
-# img_pro = poisson_blend(img_mask, img_src, img_target, method='src')
-# io.imsave('./testimages/poisson_src.png', img_pro)
-
-# img_pro = poisson_blend(img_mask, img_src, img_target, method='target')
-# io.imsave('./testimages/poisson_target.png', img_pro)
+    # img_pro = poisson_blend(img_mask, img_src, img_target, method='target')
+    # io.imsave('./testimages/poisson_target.png', img_pro)
 
 
-# def plot_coo_matrix(m):
-#     if not isinstance(m, coo_matrix):
-#         m = coo_matrix(m)
-#     fig = plt.figure()
-#     ax = fig.add_subplot(111, axisbg='white')
-#     ax.plot(m.col, m.row, 's', color='black', ms=1)
-#     ax.set_xlim(0, m.shape[1])
-#     ax.set_ylim(0, m.shape[0])
-#     ax.set_aspect('equal')
-#     for spine in ax.spines.values():
-#         spine.set_visible(False)
-#     ax.invert_yaxis()
-#     ax.set_aspect('equal')
-#     ax.set_xticks([])
-#     ax.set_yticks([])
-#     return ax
+    # def plot_coo_matrix(m):
+    #     if not isinstance(m, coo_matrix):
+    #         m = coo_matrix(m)
+    #     fig = plt.figure()
+    #     ax = fig.add_subplot(111, axisbg='white')
+    #     ax.plot(m.col, m.row, 's', color='black', ms=1)
+    #     ax.set_xlim(0, m.shape[1])
+    #     ax.set_ylim(0, m.shape[0])
+    #     ax.set_aspect('equal')
+    #     for spine in ax.spines.values():
+    #         spine.set_visible(False)
+    #     ax.invert_yaxis()
+    #     ax.set_aspect('equal')
+    #     ax.set_xticks([])
+    #     ax.set_yticks([])
+    #     return ax
 
-# B = A.tocoo()
-# plot_coo_matrix(B)
-# plt.show()
+    # B = A.tocoo()
+    # plot_coo_matrix(B)
+    # plt.show()
